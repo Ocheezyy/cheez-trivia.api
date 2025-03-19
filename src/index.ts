@@ -1,8 +1,9 @@
 import express, { Request, Response } from "express";
+import "dotenv/config";
 import http from "http";
 import { Server } from "socket.io";
-import redis, { RedisClientType } from "redis";
-import type { Difficulty, RoomData } from "./types";
+import { RedisClientType, createClient } from "redis";
+import type { Difficulty, RoomData, TimeLimit } from "./types";
 import { getGameRoom, setGameRoom } from "./redis-functions";
 import { nanoid } from "nanoid";
 import { fetchTriviaQuestions } from "./utils";
@@ -10,7 +11,24 @@ import { fetchTriviaQuestions } from "./utils";
 const app = express();
 const server = http.createServer(app);
 
-const redisClient: RedisClientType = redis.createClient();
+const redisClient: RedisClientType = createClient({
+  username: process.env.REDIS_USER,
+  password: process.env.REDIS_PASS,
+  socket: {
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT),
+  },
+});
+
+redisClient
+  .connect()
+  .then(() => console.log("Redis Connected!"))
+  .catch((e) => {
+    console.error("Failed to connect to redis", e);
+    throw new Error("Could not connect to redis");
+  });
+
+redisClient.on("error", (err) => console.log("Redis Client Error", err));
 
 const io = new Server(server, {
   cors: {
@@ -41,7 +59,13 @@ io.on("connection", (socket) => {
 
   socket.on(
     "createRoom",
-    async (playerName: string, numQuestions: number, category: number, difficulty: Difficulty) => {
+    async (
+      playerName: string,
+      numQuestions: number,
+      category: number,
+      difficulty: Difficulty,
+      timeLimit: TimeLimit
+    ) => {
       const questions = await fetchTriviaQuestions(numQuestions, category, difficulty);
 
       const roomData: RoomData = {
@@ -54,6 +78,7 @@ io.on("connection", (socket) => {
         gameStarted: false,
         category: category,
         difficulty: difficulty,
+        timeLimit: timeLimit,
       };
 
       io.to(socket.id).emit("roomCreated", roomData);

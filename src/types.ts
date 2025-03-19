@@ -36,4 +36,5 @@ export type RoomData = {
   gameStarted: boolean;
   category: number;
   difficulty: Difficulty;
+  timeLimit: TimeLimit;
 };
