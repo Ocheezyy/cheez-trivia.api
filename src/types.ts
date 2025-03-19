@@ -47,3 +47,39 @@ export type RoomData = {
   difficulty: Difficulty;
   timeLimit: TimeLimit;
 };
+
+type SocketSendEvents = {
+  createRoom: (
+    playerName: string,
+    numQuestions: number,
+    categoryId: number,
+    difficulty: Difficulty,
+    timeLimit: TimeLimit
+  ) => void;
+  joinRoom: (roomId: string, playerName: string) => void;
+  submitAnswer: (roomId: string, playerName: string, points: number) => void;
+  sendMessage: (roomId: string, message: string, playerName: string) => void;
+  nextQuestion: (roomId: string, playerName: string) => void;
+  startGame: (roomId: string) => void;
+  disconnect: () => void;
+};
+
+type SocketResponseEvents = {
+  roomCreated: (data: RoomData) => void;
+  playerJoined: (data: RoomData) => void;
+  updatePlayerScore: (playerName: string, score: number) => void;
+  joinFailed: () => void;
+  receivedMessage: (message: string, playerName: string) => void;
+  nextQuestion: (currentQuestion: number) => void;
+  gameStarted: () => void;
+  gameEnd: () => void;
+};
+
+declare module "socket.io" {
+  // @ts-expect-error not fixing
+  interface Socket {
+    // Add your custom event types here
+    on<T extends keyof SocketSendEvents>(event: T, listener: SocketSendEvents[T]): this;
+    emit<T extends keyof SocketResponseEvents>(event: T, ...args: Parameters<SocketResponseEvents[T]>): this;
+  }
+}
