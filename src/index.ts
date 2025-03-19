@@ -91,6 +91,7 @@ io.on("connection", (socket) => {
         difficulty: difficulty,
         timeLimit: timeLimit,
       };
+      await setGameRoom(redisClient, roomId, roomData);
       socket.join(roomId);
 
       io.to(socket.id).emit("roomCreated", roomData);
