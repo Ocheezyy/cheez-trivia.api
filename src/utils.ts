@@ -7,7 +7,8 @@ export async function fetchTriviaQuestions(
 ) {
   const url = buildTriviaUrl(numQuestions, category, difficulty);
   const response = await fetch(url);
-  if (!response.ok) throw new Error("Failed to fetch trivia questions");
+  if (!response.ok) throw new Error("Failed to fetch trivia questions: ");
+
   const data: TriviaResponse = await response.json();
   const questions: Question[] = data.results.map((question) => {
     return {
@@ -30,6 +31,7 @@ export function buildTriviaUrl(numQuestions?: number, category?: number, difficu
   if (difficulty) url = url + "difficulty=medium";
 
   if (url.endsWith("&")) url = url.substring(0, url.length - 1);
+  console.log("Trivia url: " + url);
   return url;
 }
 

@@ -77,9 +77,10 @@ io.on("connection", (socket) => {
       timeLimit: TimeLimit
     ) => {
       const questions = await fetchTriviaQuestions(numQuestions, category, difficulty);
+      const roomId = nanoid(8);
 
       const roomData: RoomData = {
-        gameId: nanoid(8),
+        gameId: roomId,
         players: [{ id: socket.id, name: playerName, score: 0 }],
         questions: questions,
         host: playerName,
@@ -90,6 +91,7 @@ io.on("connection", (socket) => {
         difficulty: difficulty,
         timeLimit: timeLimit,
       };
+      socket.join(roomId);
 
       io.to(socket.id).emit("roomCreated", roomData);
     }
