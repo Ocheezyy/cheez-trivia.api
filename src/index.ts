@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import cors from "cors";
 import "dotenv/config";
 import http from "http";
 import { Server } from "socket.io";
@@ -32,11 +33,16 @@ redisClient.on("error", (err) => console.log("Redis Client Error", err));
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow all origins (adjust for production)
+    origin: process.env.SITE_ORIGIN,
   },
 });
 
 app.use(express.json());
+app.use(
+  cors({
+    origin: process.env.SITE_ORIGIN!,
+  })
+);
 
 app.get("/api/rooms/:roomId", async (req: Request, res: Response) => {
   const { roomId } = req.params;
