@@ -3,7 +3,16 @@ export type TimeLimit = "15" | "30" | "45" | "60";
 
 export type TriviaResponse = {
   response_code: number;
-  results: Question[];
+  results: QuestionResponse[];
+};
+
+export type QuestionResponse = {
+  type: "multiple" | "boolean";
+  difficulty: Difficulty;
+  category: string;
+  question: string;
+  correct_answer: string;
+  incorrect_answers: string[];
 };
 
 export type Question = {
@@ -12,7 +21,7 @@ export type Question = {
   category: string;
   question: string;
   correct_answer: string;
-  incorrect_answers: string[];
+  all_answers: string[];
 };
 
 export type Player = {

@@ -100,28 +100,49 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("playerJoined", roomData);
   });
 
-  socket.on("submitAnswer", async (roomId: string, playerId: string, answer: string) => {
+  socket.on("startGame", async (roomId: string) => {
+    let roomData: RoomData | null = await getGameRoom(redisClient, roomId);
+    if (!roomData) return;
+
+    io.to(roomId).emit("gameStarted");
+  });
+
+  socket.on("submitAnswer", async (roomId: string, playerName: string, points: number) => {
+    if (points === 0) return;
     const roomData = await getGameRoom(redisClient, roomId);
 
-    if (roomData && roomData.currentQuestion) {
-      const isCorrect = answer === roomData.questions[roomData.currentQuestion].correct_answer;
-
+    if (roomData) {
       roomData.players = roomData.players.map((player) =>
-        player.id === playerId ? { ...player, score: player.score + (isCorrect ? 1 : 0) } : player
+        player.name === playerName ? { ...player, score: player.score + points } : player
       );
       await setGameRoom(redisClient, roomId, roomData);
 
-      io.to(roomId).emit("updatePlayerScore", roomData);
+      const playerObject = roomData.players.find((player) => player.name === playerName);
+      if (!playerObject) return;
+      io.to(roomId).emit("updatePlayerScore", { playerName, score: playerObject.score });
     }
   });
 
   socket.on("sendMessage", async (roomId: string, message: string, user: string) => {
     const roomData = await getGameRoom(redisClient, roomId);
-    if (roomData) {
-      roomData.messages = [...roomData.messages, { message, user }];
-      await setGameRoom(redisClient, roomId, roomData);
+    if (!roomData) return;
 
-      io.to(roomId).emit("receivedMessage", roomData);
+    roomData.messages = [...roomData.messages, { message, user }];
+    await setGameRoom(redisClient, roomId, roomData);
+
+    io.to(roomId).emit("receivedMessage", { message, user });
+  });
+
+  socket.on("nextQuestion", async (roomId: string, playerName) => {
+    const roomData = await getGameRoom(redisClient, roomId);
+    if (!roomData) return;
+    if (playerName !== roomData.host) return; // Maybe check that socket id matches too
+
+    if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
+    else {
+      roomData.currentQuestion = roomData.currentQuestion + 1;
+      await setGameRoom(redisClient, roomId, roomData);
+      io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
     }
   });
 
