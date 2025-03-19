@@ -44,6 +44,10 @@ app.use(
   })
 );
 
+app.get("/api/healthCheck", async (req: Request, res: Response) => {
+  res.status(200).send("OK");
+});
+
 app.get("/api/rooms/:roomId", async (req: Request, res: Response) => {
   const { roomId } = req.params;
 
