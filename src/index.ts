@@ -51,6 +51,7 @@ app.get("/api/healthCheck", async (req: Request, res: Response) => {
 app.post("/api/createRoom", async (req: Request, res: Response) => {
   try {
     const body = req.body as CreateRoomBody;
+    console.log(body);
     const questions = await fetchTriviaQuestions(body.numQuestions, body.categoryId, body.difficulty);
     const roomId = nanoid(6);
     const roomData: RoomData = {
