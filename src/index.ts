@@ -4,7 +4,7 @@ import "dotenv/config";
 import http from "http";
 import { Server } from "socket.io";
 import { RedisClientType, createClient } from "redis";
-import type { Difficulty, RoomData, TimeLimit } from "./types";
+import { CreateRoomBody, JoinRoomBody, RoomData } from "./types";
 import { getGameRoom, setGameRoom } from "./redis-functions";
 import { nanoid } from "nanoid";
 import { fetchTriviaQuestions } from "./utils";
@@ -48,6 +48,46 @@ app.get("/api/healthCheck", async (req: Request, res: Response) => {
   res.status(200).send("OK");
 });
 
+app.post("/api/createRoom", async (req: Request, res: Response) => {
+  try {
+    const body = req.body as CreateRoomBody;
+    const questions = await fetchTriviaQuestions(body.numQuestions, body.categoryId, body.difficulty);
+    const roomId = nanoid(6);
+    const roomData: RoomData = {
+      gameId: roomId,
+      players: [{ id: "", name: body.playerName, score: 0 }],
+      questions: questions,
+      host: body.playerName,
+      messages: [],
+      currentQuestion: 1,
+      gameStarted: false,
+      category: body.categoryId,
+      difficulty: body.difficulty,
+      timeLimit: body.timeLimit,
+    };
+    await setGameRoom(redisClient, roomId, roomData);
+    res.status(200).json({ roomId: roomId, playerName: body.playerName });
+  } catch (error) {
+    console.error("Failed to create room", error);
+    res.status(500).send("Server Error");
+  }
+});
+
+app.post("/api/joinRoom", async (req: Request, res: Response) => {
+  try {
+    const body = req.body as JoinRoomBody;
+    const roomData = await getGameRoom(redisClient, body.roomId);
+    if (!roomData) {
+      console.error("Failed to join room with id: " + body.roomId);
+      res.status(400).send("Room not found");
+    }
+    res.status(200).json(body);
+  } catch (error) {
+    console.error("Failed to join room", error);
+    res.status(500).send("Server Error");
+  }
+});
+
 app.get("/api/rooms/:roomId", async (req: Request, res: Response) => {
   const { roomId } = req.params;
 
@@ -67,36 +107,23 @@ app.get("/api/rooms/:roomId", async (req: Request, res: Response) => {
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
-  socket.on(
-    "createRoom",
-    async (
-      playerName: string,
-      numQuestions: number,
-      category: number,
-      difficulty: Difficulty,
-      timeLimit: TimeLimit
-    ) => {
-      const questions = await fetchTriviaQuestions(numQuestions, category, difficulty);
-      const roomId = nanoid(8);
+  socket.on("hostJoin", async (playerName: string, roomId: string) => {
+    const roomData: RoomData | null = await getGameRoom(redisClient, roomId);
 
-      const roomData: RoomData = {
-        gameId: roomId,
-        players: [{ id: socket.id, name: playerName, score: 0 }],
-        questions: questions,
-        host: playerName,
-        messages: [],
-        currentQuestion: 1,
-        gameStarted: false,
-        category: category,
-        difficulty: difficulty,
-        timeLimit: timeLimit,
-      };
-      await setGameRoom(redisClient, roomId, roomData);
-      socket.join(roomId);
-
-      io.to(socket.id).emit("roomCreated", roomData);
+    if (!roomData) {
+      console.log(`${socket.id} Failed to join room with id ${roomId} as host`);
+      io.to(socket.id).emit("hostJoinFailed", roomId);
+      return;
     }
-  );
+
+    roomData.players = roomData.players.map((player) =>
+      player.name === playerName ? { ...player, id: socket.id } : player
+    );
+    await setGameRoom(redisClient, roomId, roomData);
+    socket.join(roomId);
+
+    io.to(socket.id).emit("hostJoined", roomData);
+  });
 
   socket.on("joinRoom", async (roomId: string, playerName: string) => {
     let roomData: RoomData | null = await getGameRoom(redisClient, roomId);
@@ -169,6 +196,26 @@ io.on("connection", (socket) => {
       await setGameRoom(redisClient, roomId, roomData);
       io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
     }
+  });
+
+  socket.on("reconnect", async (roomId, playerName) => {
+    const roomData = await getGameRoom(redisClient, roomId);
+
+    if (!roomData) {
+      io.to(socket.id).emit("reconnectFailed", "Room not found");
+      console.log(`${socket.id} Failed to reconnect to room ${roomId}`);
+      return;
+    }
+
+    socket.join(roomId);
+    console.log(`Socket ${socket.id} reconnected and rejoined room ${roomId}`);
+
+    roomData.players = roomData.players.map((player) =>
+      player.name === playerName ? { ...player, id: socket.id } : player
+    );
+    await setGameRoom(redisClient, roomId, roomData);
+
+    io.to(roomId).emit("playerReconnected", { playerName, roomData });
   });
 
   // Handle disconnections
