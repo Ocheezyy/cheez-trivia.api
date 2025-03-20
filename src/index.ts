@@ -117,6 +117,12 @@ io.on("connection", (socket) => {
     await setGameRoom(redisClient, roomId, roomData);
 
     io.to(roomId).emit("playerJoined", roomData);
+
+    const socketsInRoom = await io.in(roomId).fetchSockets();
+    console.log(
+      `Sockets in room ${roomId}: `,
+      socketsInRoom.map((s) => s.id)
+    );
   });
 
   socket.on("startGame", async (roomId: string) => {
