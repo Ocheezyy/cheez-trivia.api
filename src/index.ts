@@ -102,7 +102,13 @@ io.on("connection", (socket) => {
     let roomData: RoomData | null = await getGameRoom(redisClient, roomId);
 
     if (!roomData) {
-      io.to(socket.id).emit("joinFailed");
+      console.log(`${socket.id} Failed to join room ${roomId}`);
+      io.to(socket.id).emit("joinFailed", "Room not found");
+      return;
+    }
+
+    if (roomData.players.find((player) => player.name === playerName)) {
+      io.to(socket.id).emit("joinFailed", "Name not available");
       return;
     }
 

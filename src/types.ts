@@ -1,5 +1,6 @@
 export type Difficulty = "easy" | "medium" | "hard" | "mixed";
 export type TimeLimit = "15" | "30" | "45" | "60";
+export type JoinFailedReason = "Room not found" | "Name not available";
 
 export type TriviaResponse = {
   response_code: number;
@@ -68,7 +69,7 @@ type SocketResponseEvents = {
   roomCreated: (data: RoomData) => void;
   playerJoined: (data: RoomData) => void;
   updatePlayerScore: (playerName: string, score: number) => void;
-  joinFailed: () => void;
+  joinFailed: (reason: JoinFailedReason) => void;
   receivedMessage: (message: string, playerName: string) => void;
   nextQuestion: (currentQuestion: number) => void;
   gameStarted: () => void;
