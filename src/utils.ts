@@ -17,7 +17,7 @@ export async function fetchTriviaQuestions(
       difficulty: question.difficulty,
       category: question.category,
       correct_answer: question.correct_answer,
-      all_answers: shuffleArray([...question.correct_answer, ...question.incorrect_answers]),
+      all_answers: shuffleArray([question.correct_answer, ...question.incorrect_answers]),
     };
   });
   return questions;
