@@ -56,7 +56,7 @@ app.post("/api/createRoom", async (req: Request, res: Response) => {
     const roomId = nanoid(6);
     const roomData: RoomData = {
       gameId: roomId,
-      players: [{ id: "", name: body.playerName, score: 0 }],
+      players: [{ id: "", name: body.playerName, score: 0, hasAnswered: false }],
       questions: questions,
       host: body.playerName,
       messages: [],
@@ -141,7 +141,7 @@ io.on("connection", (socket) => {
     }
 
     socket.join(roomId);
-    roomData.players.push({ id: socket.id, name: playerName, score: 0 });
+    roomData.players.push({ id: socket.id, name: playerName, score: 0, hasAnswered: false });
     await setGameRoom(redisClient, roomId, roomData);
 
     io.to(roomId).emit("playerJoined", roomData);
@@ -166,13 +166,28 @@ io.on("connection", (socket) => {
 
     if (roomData) {
       roomData.players = roomData.players.map((player) =>
-        player.name === playerName ? { ...player, score: player.score + points } : player
+        player.name === playerName ? { ...player, score: player.score + points, hasAnswered: true } : player
       );
       await setGameRoom(redisClient, roomId, roomData);
 
       const playerObject = roomData.players.find((player) => player.name === playerName);
       if (!playerObject) return;
       io.to(roomId).emit("updatePlayerScore", { playerName, score: playerObject.score });
+
+      // Check if all players have answered
+      const allAnswered =
+        roomData.players.filter((player) => player.hasAnswered).length === roomData.players.length;
+      if (allAnswered) {
+        io.to(roomId).emit("allAnswered");
+        setTimeout(async () => {
+          if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
+          else {
+            roomData.currentQuestion = roomData.currentQuestion + 1;
+            await setGameRoom(redisClient, roomId, roomData);
+            io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
+          }
+        }, 10000);
+      }
     }
   });
 
@@ -183,20 +198,7 @@ io.on("connection", (socket) => {
     roomData.messages = [...roomData.messages, { message, user }];
     await setGameRoom(redisClient, roomId, roomData);
 
-    io.to(roomId).emit("receivedMessage", { message, user });
-  });
-
-  socket.on("nextQuestion", async (roomId: string, playerName) => {
-    const roomData = await getGameRoom(redisClient, roomId);
-    if (!roomData) return;
-    if (playerName !== roomData.host) return; // Maybe check that socket id matches too
-
-    if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
-    else {
-      roomData.currentQuestion = roomData.currentQuestion + 1;
-      await setGameRoom(redisClient, roomId, roomData);
-      io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
-    }
+    io.to(roomId).emit("receivedMessage", message, user);
   });
 
   socket.on("reconnect", async (roomId, playerName) => {
