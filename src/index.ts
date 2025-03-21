@@ -180,6 +180,7 @@ io.on("connection", (socket) => {
         setTimeout(async () => {
           if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
           else {
+            roomData.players = roomData.players.map((player) => ({ ...player, hasAnswered: false }));
             roomData.currentQuestion = roomData.currentQuestion + 1;
             await setGameRoom(redisClient, roomId, roomData);
             io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
