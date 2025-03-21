@@ -171,7 +171,6 @@ io.on("connection", (socket) => {
         io.to(roomId).emit("updatePlayerScore", { playerName, score: playerObject.score });
       }
 
-      // Check if all players have answered
       const allAnswered =
         roomData.players.filter((player) => player.hasAnswered).length === roomData.players.length;
       if (allAnswered) {
