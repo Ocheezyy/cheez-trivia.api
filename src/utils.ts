@@ -31,7 +31,7 @@ export function buildTriviaUrl(numQuestions?: number, category?: number, difficu
   if (difficulty) url = url + "difficulty=medium";
 
   if (url.endsWith("&")) url = url.substring(0, url.length - 1);
-  console.log("Trivia url: " + url);
+  // console.log("Trivia url: " + url);
   return url;
 }
 

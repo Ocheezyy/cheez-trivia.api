@@ -13,12 +13,13 @@ const app = express();
 const server = http.createServer(app);
 
 const redisClient: RedisClientType = createClient({
-  username: process.env.REDIS_USER,
-  password: process.env.REDIS_PASS,
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: Number(process.env.REDIS_PORT),
-  },
+  url: process.env.REDIS_URL,
+  // username: process.env.REDIS_USER,
+  // password: process.env.REDIS_PASS,
+  // socket: {
+  //   host: process.env.REDIS_HOST,
+  //   port: Number(process.env.REDIS_PORT),
+  // },
 });
 
 redisClient
@@ -161,7 +162,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submitAnswer", async (roomId: string, playerName: string, points: number) => {
-    if (points === 0) return;
     const roomData = await getGameRoom(redisClient, roomId);
 
     if (roomData) {
@@ -172,12 +172,16 @@ io.on("connection", (socket) => {
 
       const playerObject = roomData.players.find((player) => player.name === playerName);
       if (!playerObject) return;
-      io.to(roomId).emit("updatePlayerScore", { playerName, score: playerObject.score });
+
+      if (points !== 0) {
+        io.to(roomId).emit("updatePlayerScore", { playerName, score: playerObject.score });
+      }
 
       // Check if all players have answered
       const allAnswered =
         roomData.players.filter((player) => player.hasAnswered).length === roomData.players.length;
       if (allAnswered) {
+        console.log("All players answered");
         io.to(roomId).emit("allAnswered");
         setTimeout(async () => {
           if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
