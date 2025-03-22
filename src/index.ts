@@ -77,24 +77,24 @@ app.post("/api/createRoom", async (req: Request, res: Response) => {
 app.post("/api/joinRoom", async (req: Request, res: Response) => {
   try {
     const body = req.body as JoinRoomBody;
-    const roomId = body.roomId.toUpperCase();
-    const roomData = await getGameRoom(redisClient, roomId);
+    body.roomId = body.roomId.toUpperCase();
+    const roomData = await getGameRoom(redisClient, body.roomId);
     if (!roomData) {
-      console.error("Failed to join room with id: " + roomId);
+      console.error("Failed to join room with id: " + body.roomId);
       res.status(400).send("Room not found");
       return;
     }
 
     const playerNames = roomData.players.map((player) => player.name);
     if (body.playerName in playerNames) {
-      console.error(`Player name ${body.playerName} already in room ${roomId}`);
+      console.error(`Player name ${body.playerName} already in room ${body.roomId}`);
       res.status(400).send("Player name taken");
       return;
     }
 
     const playerCount = playerNames.length;
     if (playerCount > 10) {
-      console.error("Player tried to join full room id: " + roomId);
+      console.error("Player tried to join full room id: " + body.roomId);
       res.status(423).send("Room full");
       return;
     }
