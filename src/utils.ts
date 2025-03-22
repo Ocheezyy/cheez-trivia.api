@@ -67,4 +67,6 @@ export async function createRoomId(redisClient: RedisClientType) {
     }
     attempts++;
   }
+
+  throw new Error("Failed to get a unique room ID");
 }
