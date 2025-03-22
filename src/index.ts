@@ -86,7 +86,7 @@ app.post("/api/joinRoom", async (req: Request, res: Response) => {
     }
 
     const playerNames = roomData.players.map((player) => player.name);
-    if (body.playerName in playerNames) {
+    if (playerNames.includes(body.playerName)) {
       console.error(`Player name ${body.playerName} already in room ${body.roomId}`);
       res.status(400).send("Player name taken");
       return;
