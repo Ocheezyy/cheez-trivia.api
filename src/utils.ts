@@ -55,14 +55,16 @@ function generateRandomLetterString() {
 }
 
 export async function createRoomId(redisClient: RedisClientType) {
-  let roomId = generateRandomLetterString();
+  let attempts = 0;
+  const MAX_ATTEMPTS = 200;
 
-  while (true) {
+  while (attempts < MAX_ATTEMPTS) {
+    let roomId = generateRandomLetterString();
     const roomString = await redisClient.hGet(GAME_ROOM_KEY, roomId);
 
-    if (roomString === undefined) {
+    if (!roomString) {
       return roomId;
     }
-    roomId = generateRandomLetterString();
+    attempts++;
   }
 }
