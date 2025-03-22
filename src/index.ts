@@ -46,7 +46,13 @@ app.get("/api/healthCheck", async (req: Request, res: Response) => {
 app.post("/api/createRoom", async (req: Request, res: Response) => {
   try {
     const body = req.body as CreateRoomBody;
-    console.log(body);
+
+    if (!body.playerName || body.playerName === "") {
+      res.status(400).send("Need to specify a playerName");
+      return;
+    }
+
+    // console.log(body);
     const questions = await fetchTriviaQuestions(body.numQuestions, body.categoryId, body.difficulty);
     const roomId = nanoid(6);
     const roomData: RoomData = {
@@ -76,7 +82,23 @@ app.post("/api/joinRoom", async (req: Request, res: Response) => {
     if (!roomData) {
       console.error("Failed to join room with id: " + body.roomId);
       res.status(400).send("Room not found");
+      return;
     }
+
+    const playerNames = roomData.players.map((player) => player.name);
+    if (body.playerName in playerNames) {
+      console.error(`Player name ${body.playerName} already in room ${body.roomId}`);
+      res.status(400).send("Player name taken");
+      return;
+    }
+
+    const playerCount = playerNames.length;
+    if (playerCount > 10) {
+      console.error("Player tried to join full room id: " + body.roomId);
+      res.status(423).send("Room full");
+      return;
+    }
+
     res.status(200).json(body);
   } catch (error) {
     console.error("Failed to join room", error);
