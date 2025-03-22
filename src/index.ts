@@ -6,8 +6,7 @@ import { Server } from "socket.io";
 import { RedisClientType, createClient } from "redis";
 import { CreateRoomBody, JoinRoomBody, RoomData } from "./types";
 import { getGameRoom, setGameRoom } from "./redis-functions";
-import { nanoid } from "nanoid";
-import { fetchTriviaQuestions } from "./utils";
+import { createRoomId, fetchTriviaQuestions } from "./utils";
 
 const app = express();
 const server = http.createServer(app);
@@ -54,7 +53,7 @@ app.post("/api/createRoom", async (req: Request, res: Response) => {
 
     // console.log(body);
     const questions = await fetchTriviaQuestions(body.numQuestions, body.categoryId, body.difficulty);
-    const roomId = nanoid(6);
+    const roomId = await createRoomId(redisClient);
     const roomData: RoomData = {
       gameId: roomId,
       players: [{ id: "", name: body.playerName, score: 0, hasAnswered: false }],
@@ -78,23 +77,24 @@ app.post("/api/createRoom", async (req: Request, res: Response) => {
 app.post("/api/joinRoom", async (req: Request, res: Response) => {
   try {
     const body = req.body as JoinRoomBody;
-    const roomData = await getGameRoom(redisClient, body.roomId);
+    const roomId = body.roomId.toUpperCase();
+    const roomData = await getGameRoom(redisClient, roomId);
     if (!roomData) {
-      console.error("Failed to join room with id: " + body.roomId);
+      console.error("Failed to join room with id: " + roomId);
       res.status(400).send("Room not found");
       return;
     }
 
     const playerNames = roomData.players.map((player) => player.name);
     if (body.playerName in playerNames) {
-      console.error(`Player name ${body.playerName} already in room ${body.roomId}`);
+      console.error(`Player name ${body.playerName} already in room ${roomId}`);
       res.status(400).send("Player name taken");
       return;
     }
 
     const playerCount = playerNames.length;
     if (playerCount > 10) {
-      console.error("Player tried to join full room id: " + body.roomId);
+      console.error("Player tried to join full room id: " + roomId);
       res.status(423).send("Room full");
       return;
     }

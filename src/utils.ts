@@ -1,4 +1,7 @@
 import type { Difficulty, Question, TriviaResponse } from "./types";
+import { RedisClientType } from "redis";
+
+const GAME_ROOM_KEY = process.env.GAME_ROOM_KEY!;
 
 export async function fetchTriviaQuestions(
   numQuestions?: number,
@@ -31,7 +34,6 @@ export function buildTriviaUrl(numQuestions?: number, category?: number, difficu
   if (difficulty) url = url + "difficulty=medium";
 
   if (url.endsWith("&")) url = url.substring(0, url.length - 1);
-  // console.log("Trivia url: " + url);
   return url;
 }
 
@@ -41,4 +43,26 @@ function shuffleArray(array: string[]): string[] {
     [array[i], array[j]] = [array[j], array[i]]; // Swap elements
   }
   return array;
+}
+
+function generateRandomLetterString() {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let result = "";
+  for (let i = 0; i < 6; i++) {
+    result += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+  return result;
+}
+
+export async function createRoomId(redisClient: RedisClientType) {
+  let roomId = generateRandomLetterString();
+
+  while (true) {
+    const roomString = await redisClient.hGet(GAME_ROOM_KEY, roomId);
+
+    if (roomString === undefined) {
+      return roomId;
+    }
+    roomId = generateRandomLetterString();
+  }
 }
