@@ -190,7 +190,7 @@ io.on("connection", (socket) => {
       if (!playerObject) return;
 
       if (points !== 0) {
-        io.to(roomId).emit("updatePlayerScore", { playerName, score: playerObject.score });
+        io.to(roomId).emit("updatePlayerScore", playerName, playerObject.score);
       }
 
       const allAnswered =
