@@ -1,4 +1,4 @@
-import type { Difficulty, Question, TriviaResponse } from "./types";
+import type { Difficulty, Player, Question, TriviaResponse } from "./types";
 import { RedisClientType } from "redis";
 
 const GAME_ROOM_KEY = process.env.GAME_ROOM_KEY!;
@@ -69,4 +69,16 @@ export async function createRoomId(redisClient: RedisClientType) {
   }
 
   throw new Error("Failed to get a unique room ID");
+}
+
+export function newPlayerObject(playerName: string, socketId: string, timeLimit: string): Player {
+  return {
+    id: socketId,
+    name: playerName,
+    score: 0,
+    hasAnswered: false,
+    fastestAnswer: Number(timeLimit),
+    correctAnswers: 0,
+    totalAnswers: 0,
+  };
 }

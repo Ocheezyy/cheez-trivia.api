@@ -43,6 +43,9 @@ export type Player = {
   name: string;
   score: number;
   hasAnswered: boolean;
+  correctAnswers: number;
+  totalAnswers: number;
+  fastestAnswer: number;
 };
 
 export type Message = {
@@ -66,7 +69,7 @@ export type RoomData = {
 type SocketSendEvents = {
   hostJoin: (playerName: string, roomId: string) => void;
   joinRoom: (roomId: string, playerName: string) => void;
-  submitAnswer: (roomId: string, playerName: string, points: number) => void;
+  submitAnswer: (roomId: string, playerName: string, points: number, answerTime: number) => void;
   sendMessage: (roomId: string, message: string, playerName: string) => void;
   nextQuestion: (roomId: string, playerName: string) => void;
   startGame: (roomId: string) => void;

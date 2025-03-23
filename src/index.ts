@@ -6,7 +6,7 @@ import { Server } from "socket.io";
 import { RedisClientType, createClient } from "redis";
 import { CreateRoomBody, JoinRoomBody, RoomData } from "./types";
 import { getGameRoom, setGameRoom } from "./redis-functions";
-import { createRoomId, fetchTriviaQuestions } from "./utils";
+import { createRoomId, fetchTriviaQuestions, newPlayerObject } from "./utils";
 
 const app = express();
 const server = http.createServer(app);
@@ -51,12 +51,11 @@ app.post("/api/createRoom", async (req: Request, res: Response) => {
       return;
     }
 
-    // console.log(body);
     const questions = await fetchTriviaQuestions(body.numQuestions, body.categoryId, body.difficulty);
     const roomId = await createRoomId(redisClient);
     const roomData: RoomData = {
       gameId: roomId,
-      players: [{ id: "", name: body.playerName, score: 0, hasAnswered: false }],
+      players: [newPlayerObject(body.playerName, "", body.timeLimit)],
       questions: questions,
       host: body.playerName,
       messages: [],
@@ -102,6 +101,23 @@ app.post("/api/joinRoom", async (req: Request, res: Response) => {
     res.status(200).json(body);
   } catch (error) {
     console.error("Failed to join room", error);
+    res.status(500).send("Server Error");
+  }
+});
+
+app.get("/api/game-over/:roomId", async (req: Request, res: Response) => {
+  const { roomId } = req.params;
+
+  try {
+    const roomData = await getGameRoom(redisClient, roomId);
+    if (!roomData) {
+      console.error("Failed to get game over room with id: " + roomId);
+      res.status(400).send("Room not found");
+      return;
+    }
+    res.status(200).json(roomData);
+  } catch (e) {
+    console.error("Failed to get game over room", e);
     res.status(500).send("Server Error");
   }
 });
@@ -158,7 +174,7 @@ io.on("connection", (socket) => {
     }
 
     socket.join(roomId);
-    roomData.players.push({ id: socket.id, name: playerName, score: 0, hasAnswered: false });
+    roomData.players.push(newPlayerObject(playerName, socket.id, roomData.timeLimit));
     await setGameRoom(redisClient, roomId, roomData);
 
     io.to(roomId).emit("playerJoined", roomData);
@@ -177,39 +193,52 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("gameStarted");
   });
 
-  socket.on("submitAnswer", async (roomId: string, playerName: string, points: number) => {
-    const roomData = await getGameRoom(redisClient, roomId);
+  socket.on(
+    "submitAnswer",
+    async (roomId: string, playerName: string, points: number, answerTime: number) => {
+      const roomData = await getGameRoom(redisClient, roomId);
 
-    if (roomData) {
-      roomData.players = roomData.players.map((player) =>
-        player.name === playerName ? { ...player, score: player.score + points, hasAnswered: true } : player
-      );
-      await setGameRoom(redisClient, roomId, roomData);
+      if (roomData) {
+        roomData.players = roomData.players.map((player) =>
+          player.name === playerName ? { ...player, score: player.score + points, hasAnswered: true } : player
+        );
+        await setGameRoom(redisClient, roomId, roomData);
 
-      const playerObject = roomData.players.find((player) => player.name === playerName);
-      if (!playerObject) return;
+        const playerObject = roomData.players.find((player) => player.name === playerName);
+        if (!playerObject) return;
 
-      if (points !== 0) {
-        io.to(roomId).emit("updatePlayerScore", playerName, playerObject.score);
-      }
+        playerObject.totalAnswers = playerObject.totalAnswers + 1;
 
-      const allAnswered =
-        roomData.players.filter((player) => player.hasAnswered).length === roomData.players.length;
-      if (allAnswered) {
-        console.log("All players answered");
-        io.to(roomId).emit("allAnswered");
-        setTimeout(async () => {
-          if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
-          else {
-            roomData.players = roomData.players.map((player) => ({ ...player, hasAnswered: false }));
-            roomData.currentQuestion = roomData.currentQuestion + 1;
-            await setGameRoom(redisClient, roomId, roomData);
-            io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
+        if (points !== 0) {
+          io.to(roomId).emit("updatePlayerScore", playerName, playerObject.score);
+          playerObject.correctAnswers = playerObject.correctAnswers + 1;
+          if (playerObject.fastestAnswer < answerTime) {
+            playerObject.fastestAnswer = answerTime;
           }
-        }, 10000);
+        }
+
+        roomData.players = [...roomData.players, playerObject];
+
+        await setGameRoom(redisClient, roomId, roomData);
+
+        const allAnswered =
+          roomData.players.filter((player) => player.hasAnswered).length === roomData.players.length;
+        if (allAnswered) {
+          console.log("All players answered");
+          io.to(roomId).emit("allAnswered");
+          setTimeout(async () => {
+            if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
+            else {
+              roomData.players = roomData.players.map((player) => ({ ...player, hasAnswered: false }));
+              roomData.currentQuestion = roomData.currentQuestion + 1;
+              await setGameRoom(redisClient, roomId, roomData);
+              io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
+            }
+          }, 10000);
+        }
       }
     }
-  });
+  );
 
   socket.on("sendMessage", async (roomId: string, message: string, user: string) => {
     const roomData = await getGameRoom(redisClient, roomId);
