@@ -1,32 +1,41 @@
-# Stage 1: Build and test
-FROM node:20-alpine AS builder
+# Stage 1: Test (with ALL dependencies)
+FROM node:20-alpine AS tester
 
 WORKDIR /app
 
-# Install dependencies first for better caching
+# Copy package files first for better caching
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
 
-# Copy source files
+# Install ALL dependencies (including devDependencies)
+RUN npm ci
+
+# Copy source and test files
 COPY . .
 
 # Run tests
 RUN npm test
 
-# Transpile
-RUN npm run build
-
-# Stage 2: Production image
-FROM node:20-alpine
+# Stage 2: Build (with dev dependencies)
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install production dependencies only
-COPY --from=builder /app/package.json /app/package-lock.json ./
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=tester /app .
 
-# Copy transpiled JS files from builder
-COPY --from=builder /app/dist ./
+# Transpile TypeScript
+RUN npm run build
+
+# Stage 3: Production (no dev dependencies)
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install PRODUCTION dependencies only
+COPY --from=builder /app/package.json /app/package-lock.json ./
+RUN npm ci --omit=dev
+
+# Copy transpiled JS files
+COPY --from=builder /app/dist ./dist
 
 # Security hardening
 RUN apk add --no-cache dumb-init && \
@@ -35,11 +44,9 @@ RUN apk add --no-cache dumb-init && \
 
 USER node
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s \
     CMD node -e "require('http').get('http://localhost:${PORT}/api/healthCheck', (r) => { if (r.statusCode !== 200) throw new Error() })"
 
 EXPOSE ${PORT}
-
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "src/index.js"]
+CMD ["node", "dist/server.js"]
