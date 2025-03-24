@@ -2,6 +2,8 @@ import request from "supertest";
 import express from "express";
 import { createGameRoutes } from "../src/routes/game-routes";
 import { RedisClientType } from "redis";
+import { CreateRoomBody, Question } from "../src/types";
+import { createRoomData, newPlayerObject } from "../src/utils";
 
 // Mock Redis functions
 const mockRedisClient = {
@@ -54,6 +56,20 @@ jest.mock("../src/utils", () => ({
       correctAnswers: 0,
       totalAnswers: 0,
     })),
+  createRoomData: jest
+    .fn()
+    .mockImplementation((body: CreateRoomBody, roomId: string, questions: Question[]) => ({
+      gameId: roomId,
+      players: [newPlayerObject(body.playerName, "", body.timeLimit)],
+      questions: questions,
+      host: body.playerName,
+      messages: [],
+      currentQuestion: 1,
+      gameStarted: false,
+      category: body.categoryId,
+      difficulty: body.difficulty,
+      timeLimit: body.timeLimit,
+    })),
 }));
 
 // Set up the Express app
@@ -68,7 +84,7 @@ describe("Game API Routes", () => {
       numQuestions: 10,
       categoryId: 9,
       difficulty: "medium",
-      timeLimit: 30,
+      timeLimit: "30",
     });
 
     expect(response.status).toBe(200);
@@ -81,7 +97,7 @@ describe("Game API Routes", () => {
       numQuestions: 10,
       categoryId: 9,
       difficulty: "medium",
-      timeLimit: 30,
+      timeLimit: "30",
     });
 
     expect(response.status).toBe(400);
