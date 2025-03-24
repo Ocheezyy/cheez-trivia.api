@@ -12,7 +12,8 @@
     "dev": "nodemon src/index.ts",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "test": "jest --coverage"
+    "test": "jest --coverage",
+    "test-clear-cache": "jest --clearCache"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

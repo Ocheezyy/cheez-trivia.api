@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getGameRoom } from "../redis-functions";
 import { CreateRoomBody, JoinRoomBody, RoomData } from "../types";
 import { setGameRoom } from "../redis-functions";
-import { createRoomId, fetchTriviaQuestions, newPlayerObject } from "../utils";
+import { createRoomData, createRoomId, fetchTriviaQuestions } from "../utils";
 import { RedisClientType } from "redis";
 
 export const createGameRoutes = (redisClient: RedisClientType) => {
@@ -19,18 +19,8 @@ export const createGameRoutes = (redisClient: RedisClientType) => {
 
       const questions = await fetchTriviaQuestions(body.numQuestions, body.categoryId, body.difficulty);
       const roomId = await createRoomId(redisClient);
-      const roomData: RoomData = {
-        gameId: roomId,
-        players: [newPlayerObject(body.playerName, "", body.timeLimit)],
-        questions: questions,
-        host: body.playerName,
-        messages: [],
-        currentQuestion: 1,
-        gameStarted: false,
-        category: body.categoryId,
-        difficulty: body.difficulty,
-        timeLimit: body.timeLimit,
-      };
+      const roomData = createRoomData(body, roomId, questions);
+
       await setGameRoom(redisClient, roomId, roomData);
       res.status(200).json({ roomId: roomId, playerName: body.playerName });
     } catch (error) {

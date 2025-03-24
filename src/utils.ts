@@ -1,4 +1,4 @@
-import type { Difficulty, Player, Question, TriviaResponse } from "./types";
+import { CreateRoomBody, Difficulty, Player, Question, RoomData, TriviaResponse } from "./types";
 import { RedisClientType } from "redis";
 
 const GAME_ROOM_KEY = process.env.GAME_ROOM_KEY!;
@@ -81,4 +81,20 @@ export function newPlayerObject(playerName: string, socketId: string, timeLimit:
     correctAnswers: 0,
     totalAnswers: 0,
   };
+}
+
+export function createRoomData(body: CreateRoomBody, roomId: string, questions: Question[]) {
+  const roomData: RoomData = {
+    gameId: roomId,
+    players: [newPlayerObject(body.playerName, "", body.timeLimit)],
+    questions: questions,
+    host: body.playerName,
+    messages: [],
+    currentQuestion: 1,
+    gameStarted: false,
+    category: body.categoryId,
+    difficulty: body.difficulty,
+    timeLimit: body.timeLimit,
+  };
+  return roomData;
 }

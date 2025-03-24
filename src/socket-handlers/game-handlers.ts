@@ -35,14 +35,16 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
           }
         }
 
-        roomData.players = [...roomData.players, playerObject];
+        roomData.players = roomData.players.map((player) =>
+          player.name === playerName ? { ...playerObject } : player
+        );
 
         await setGameRoom(redisClient, roomId, roomData);
 
         const allAnswered =
           roomData.players.filter((player) => player.hasAnswered).length === roomData.players.length;
         if (allAnswered) {
-          console.log("All players answered");
+          console.log(`All players answered in room: ${roomData.gameId}`);
           io.to(roomId).emit("allAnswered");
           setTimeout(async () => {
             if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
