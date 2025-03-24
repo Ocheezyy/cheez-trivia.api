@@ -20,6 +20,7 @@ export async function setGameRoom(
 ): Promise<boolean> {
   try {
     await redisClient.hSet(GAME_ROOM_KEY, roomId, JSON.stringify(data));
+    await redisClient.hExpire(GAME_ROOM_KEY, roomId, 3600);
     return true;
   } catch (err) {
     console.error("Error setting gameRoom", err);
