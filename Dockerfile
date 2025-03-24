@@ -49,4 +49,4 @@ HEALTHCHECK --interval=30s --timeout=3s \
 
 EXPOSE ${PORT}
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "src/server.js"]
+CMD ["node", "src/index.js"]
