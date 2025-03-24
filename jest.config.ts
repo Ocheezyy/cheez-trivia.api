@@ -5,4 +5,5 @@ export default {
     "^.+\\.ts$": "ts-jest",
   },
   moduleFileExtensions: ["ts", "js"],
+  testPathIgnorePatterns: ["__tests__/test-utils.*"],
 };
