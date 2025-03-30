@@ -59,7 +59,7 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
               await setGameRoom(redisClient, roomId, roomData);
               io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
             }
-          }, 10000);
+          }, 5000);
         }
       }
     }
