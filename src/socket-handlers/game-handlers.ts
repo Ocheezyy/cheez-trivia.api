@@ -17,6 +17,8 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
       const roomData = await getGameRoom(redisClient, roomId);
 
       if (roomData) {
+        if (roomData.players.find((p) => p.name === playerName)?.hasAnswered) return;
+
         roomData.players = roomData.players.map((player) =>
           player.name === playerName ? { ...player, score: player.score + points, hasAnswered: true } : player
         );
@@ -26,6 +28,7 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
         if (!playerObject) return;
 
         playerObject.totalAnswers = playerObject.totalAnswers + 1;
+        playerObject.hasAnswered = true;
 
         if (points !== 0) {
           io.to(roomId).emit("updatePlayerScore", playerName, playerObject.score);
@@ -44,8 +47,10 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
         const allAnswered =
           roomData.players.filter((player) => player.hasAnswered).length === roomData.players.length;
         if (allAnswered) {
-          console.log(`All players answered in room: ${roomData.gameId}`);
-          io.to(roomId).emit("allAnswered");
+          console.log(
+            `All players answered question: ${roomData.currentQuestion}, in room: ${roomData.gameId}`
+          );
+          io.to(roomId).emit(`allAnswered`);
           setTimeout(async () => {
             if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
             else {
