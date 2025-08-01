@@ -98,3 +98,13 @@ export function createRoomData(body: CreateRoomBody, roomId: string, questions: 
   };
   return roomData;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const isValidRoomData = (data: any): data is RoomData => {
+  return (
+    data &&
+    typeof data.gameId === "string" &&
+    Array.isArray(data.players) &&
+    typeof data.currentQuestion === "number"
+  );
+};

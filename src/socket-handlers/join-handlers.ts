@@ -1,8 +1,9 @@
 import { RoomData } from "../types";
 import { getGameRoom, setGameRoom } from "../redis-functions";
-import { newPlayerObject } from "../utils";
+import { isValidRoomData, newPlayerObject } from "../utils";
 import { Server, Socket } from "socket.io";
 import { RedisClientType } from "redis";
+import { handleSocketError } from "./handleSocketError";
 
 export const handleJoin = (io: Server, socket: Socket, redisClient: RedisClientType) => {
   socket.on("hostJoin", async (playerName: string, roomId: string) => {
@@ -15,6 +16,10 @@ export const handleJoin = (io: Server, socket: Socket, redisClient: RedisClientT
         return;
       }
 
+      if (!isValidRoomData(roomData)) {
+        throw new Error("Invalid room data");
+      }
+
       roomData.players = roomData.players.map((player) =>
         player.name === playerName ? { ...player, id: socket.id } : player
       );
@@ -23,8 +28,7 @@ export const handleJoin = (io: Server, socket: Socket, redisClient: RedisClientT
 
       io.to(socket.id).emit("hostJoined", roomData);
     } catch (error) {
-      console.error("Failed to join room (host)", error);
-      socket.emit("error", error);
+      handleSocketError(socket, "Failed to join room (host)", error);
     }
   });
 
@@ -36,6 +40,10 @@ export const handleJoin = (io: Server, socket: Socket, redisClient: RedisClientT
         console.log(`${socket.id} Failed to join room ${roomId}`);
         io.to(socket.id).emit("joinFailed", "Room not found");
         return;
+      }
+
+      if (!isValidRoomData(roomData)) {
+        throw new Error("Invalid room data");
       }
 
       if (roomData.players.find((player) => player.name === playerName)) {
@@ -55,8 +63,7 @@ export const handleJoin = (io: Server, socket: Socket, redisClient: RedisClientT
         socketsInRoom.map((s) => s.id)
       );
     } catch (error) {
-      console.error("Failed to join room", error);
-      socket.emit("error", error);
+      handleSocketError(socket, "Failed to join room", error);
     }
   });
 };

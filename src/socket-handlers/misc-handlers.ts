@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { RedisClientType } from "redis";
 import { getGameRoom, setGameRoom } from "../redis-functions";
+import { handleSocketError } from "./handleSocketError";
 
 export const handleMisc = (io: Server, socket: Socket, redisClient: RedisClientType) => {
   socket.on("reconnect", async (roomId, playerName) => {
@@ -23,8 +24,7 @@ export const handleMisc = (io: Server, socket: Socket, redisClient: RedisClientT
 
       io.to(roomId).emit("playerReconnected", { playerName, roomData });
     } catch (error) {
-      console.error("Failed to reconnect to room", error);
-      socket.emit("error", error);
+      handleSocketError(socket, "Failed to reconnect to room", error);
     }
   });
 };

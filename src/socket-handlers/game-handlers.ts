@@ -2,19 +2,32 @@ import { Server, Socket } from "socket.io";
 import { RedisClientType } from "redis";
 import { getGameRoom, setGameRoom } from "../redis-functions";
 import { RoomData } from "../types";
+import { handleSocketError } from "./handleSocketError";
+import { isValidRoomData } from "../utils";
 
 const timeouts = new Map<string, NodeJS.Timeout>();
+
+const clearRoomTimeouts = (roomId: string) => {
+  for (const [key, timeout] of timeouts.entries()) {
+    if (key.startsWith(roomId)) {
+      clearTimeout(timeout);
+      timeouts.delete(key);
+    }
+  }
+};
 
 export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientType) => {
   socket.on("startGame", async (roomId: string) => {
     try {
       let roomData: RoomData | null = await getGameRoom(redisClient, roomId);
-      if (!roomData) return;
+      if (!roomData) throw new Error("Failed to get room data");
+      if (!isValidRoomData(roomData)) {
+        throw new Error("Invalid room data");
+      }
 
       io.to(roomId).emit("gameStarted");
     } catch (error) {
-      console.error("Failed to start game", error);
-      socket.emit("error", error);
+      handleSocketError(socket, "Failed to start game", error);
     }
   });
 
@@ -26,6 +39,10 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
 
         if (!roomData) {
           throw new Error("Room not found");
+        }
+
+        if (!isValidRoomData(roomData)) {
+          throw new Error("Invalid room data");
         }
 
         if (roomData.players.find((p) => p.name === playerName)?.hasAnswered) return;
@@ -82,12 +99,8 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
     }
   );
 
-  // TODO: Create game end event
-  // socket.on("gameEnd", (roomId: string) => {
-  //   const timeout = timeouts.get(roomId);
-  //   if (timeout) {
-  //     clearTimeout(timeout);
-  //     timeouts.delete(roomId);
-  //   }
-  // });
+  socket.on("gameEnd", (roomId: string) => {
+    clearRoomTimeouts(roomId);
+    io.to(roomId).emit("gameEnded");
+  });
 };
