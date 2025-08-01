@@ -26,6 +26,19 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
       }
 
       io.to(roomId).emit("gameStarted");
+
+      // Start countdown timer for first question
+      timeouts.set(
+        `${roomId}-start`,
+        setTimeout(async () => {
+          roomData = await getGameRoom(redisClient, roomId);
+          if (!roomData || !isValidRoomData(roomData)) return;
+
+          roomData.currentQuestion = 1;
+          await setGameRoom(redisClient, roomId, roomData);
+          io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
+        }, 3000) // 3 second countdown before first question
+      );
     } catch (error) {
       handleSocketError(socket, "Failed to start game", error);
     }
@@ -82,25 +95,35 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
           timeouts.set(
             `${roomId} ${roomData.currentQuestion}`,
             setTimeout(async () => {
-              if (roomData.currentQuestion === roomData.questions.length) io.to(roomId).emit("gameEnd");
-              else {
-                roomData.players = roomData.players.map((player) => ({ ...player, hasAnswered: false }));
-                roomData.currentQuestion = roomData.currentQuestion + 1;
-                await setGameRoom(redisClient, roomId, roomData);
-                io.to(roomId).emit("nextQuestion", roomData.currentQuestion);
+              const updatedRoomData = await getGameRoom(redisClient, roomId);
+              if (!updatedRoomData || !isValidRoomData(updatedRoomData)) return;
+
+              if (updatedRoomData.currentQuestion === updatedRoomData.questions.length) {
+                clearRoomTimeouts(roomId);
+                io.to(roomId).emit("gameEnd");
+              } else {
+                updatedRoomData.players = updatedRoomData.players.map((player) => ({
+                  ...player,
+                  hasAnswered: false,
+                }));
+                updatedRoomData.currentQuestion = updatedRoomData.currentQuestion + 1;
+                await setGameRoom(redisClient, roomId, updatedRoomData);
+                io.to(roomId).emit("nextQuestion", updatedRoomData.currentQuestion);
               }
             }, 5000)
           );
         }
       } catch (error) {
-        console.error("Failed to submit answer", error);
-        socket.emit("error", error);
+        handleSocketError(socket, "Failed to submit answer", error);
       }
     }
   );
 
-  socket.on("gameEnd", (roomId: string) => {
-    clearRoomTimeouts(roomId);
-    io.to(roomId).emit("gameEnded");
+  // Handle cleanup when game ends
+  socket.on("disconnect", () => {
+    // Find and clear any timeouts associated with this socket's rooms
+    socket.rooms.forEach((roomId) => {
+      clearRoomTimeouts(roomId);
+    });
   });
 };

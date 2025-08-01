@@ -6,7 +6,15 @@ import { handleMisc } from "./misc-handlers";
 import { RedisClientType } from "redis";
 
 export const setupSocketHandlers = (io: Server, redisClient: RedisClientType) => {
+  const connectedSockets = new Set<string>();
+
   io.on("connection", (socket: Socket) => {
+    if (connectedSockets.has(socket.id)) {
+      socket.disconnect(true);
+      return;
+    }
+
+    connectedSockets.add(socket.id);
     console.log("A user connected:", socket.id);
 
     handleJoin(io, socket, redisClient);
@@ -15,6 +23,8 @@ export const setupSocketHandlers = (io: Server, redisClient: RedisClientType) =>
     handleMisc(io, socket, redisClient);
 
     socket.on("disconnect", () => {
+      connectedSockets.delete(socket.id);
+
       console.log("A user disconnected:", socket.id);
     });
   });

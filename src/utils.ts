@@ -108,3 +108,7 @@ export const isValidRoomData = (data: any): data is RoomData => {
     typeof data.currentQuestion === "number"
   );
 };
+
+export const validateMessage = (message: string): boolean => {
+  return typeof message === "string" && message.trim().length > 0 && message.length <= 500; // Max length
+};
