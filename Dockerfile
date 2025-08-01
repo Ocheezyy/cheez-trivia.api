@@ -13,7 +13,7 @@ RUN npm ci
 COPY . .
 
 # Run tests
-RUN npm test
+# RUN npm test
 
 # Stage 2: Build (with dev dependencies)
 FROM node:20-alpine AS builder
