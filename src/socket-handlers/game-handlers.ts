@@ -99,8 +99,15 @@ export const handleGame = (io: Server, socket: Socket, redisClient: RedisClientT
               if (!updatedRoomData || !isValidRoomData(updatedRoomData)) return;
 
               if (updatedRoomData.currentQuestion === updatedRoomData.questions.length) {
+                console.log(`Game ending in room ${roomId}`); // Add logging
                 clearRoomTimeouts(roomId);
                 io.to(roomId).emit("gameEnd");
+
+                // Verify room state after game end
+                console.log(`Final game state for room ${roomId}:`, {
+                  currentQuestion: updatedRoomData.currentQuestion,
+                  totalQuestions: updatedRoomData.questions.length,
+                });
               } else {
                 updatedRoomData.players = updatedRoomData.players.map((player) => ({
                   ...player,
